@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Secret Santa</title>
+<style>
+:root{--bg:#10291f;--card:#f7f1e6;--ink:#1d2a24;--red:#b3202f;--gold:#d9a93f;color-scheme:light dark}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;padding:20px;background:var(--bg);color:var(--ink);font:18px/1.6 Georgia,"Times New Roman",serif}
+main{width:100%;max-width:420px;background:var(--card);border-radius:6px 6px 6px 36px;padding:28px 24px;border-top:8px solid var(--red);box-shadow:0 0 0 3px var(--gold) inset}
+h1{margin:0 0 4px;font-size:2rem;line-height:1.15}
+p.s{margin:0 0 20px;opacity:.75}
+label{display:block;margin-bottom:14px;font-size:.95rem}
+select,input{display:block;width:100%;margin-top:4px;padding:11px;font:inherit;border:2px solid var(--ink);border-radius:4px;background:#fff;color:var(--ink)}
+input{letter-spacing:.2em;text-transform:uppercase}
+button{width:100%;padding:12px;font:inherit;font-weight:700;color:#fff;background:var(--red);border:0;border-radius:4px;cursor:pointer}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+#res{margin:20px 0 0;text-align:center;min-height:1.6em}
+#res b{display:block;margin-top:6px;font-size:2rem;line-height:1.2;color:var(--red)}
+#res.e{color:var(--red)}
+</style>
+</head>
+<body>
+<main>
+  <h1>Secret Santa</h1>
+  <p class="s">Choisis ton nom et entre le mot de passe reçu sur WhatsApp.</p>
+  <label>Ton nom<select id="who"></select></label>
+  <label>Ton mot de passe<input id="pw" autocomplete="off" autocapitalize="characters" spellcheck="false"></label>
+  <button id="go">Découvrir ma personne</button>
+  <p id="res" aria-live="polite"></p>
+</main>
+<script src="data.js"></script>
+<script>
+const D = window.SANTA, who = document.getElementById('who'), pw = document.getElementById('pw'),
+      res = document.getElementById('res'), go = document.getElementById('go');
+const u8 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+if (!D) { res.className = 'e'; res.textContent = 'Fichier data.js introuvable.'; }
+else D.p.forEach((x, i) => who.add(new Option(x.n, i)));
+
+async function open(p, pass) {
+  const km = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
+  const k = await crypto.subtle.deriveKey({name: 'PBKDF2', salt: u8(p.s), iterations: D.it, hash: 'SHA-256'},
+    km, {name: 'AES-GCM', length: 256}, false, ['decrypt']);
+  return new TextDecoder().decode(await crypto.subtle.decrypt({name: 'AES-GCM', iv: u8(p.i)}, k, u8(p.c)));
+}
+async function reveal() {
+  res.className = ''; res.textContent = '…';
+  try {
+    const name = await open(D.p[who.value], pw.value.trim().toUpperCase());
+    res.innerHTML = 'Tu offres un cadeau à<b></b>';
+    res.querySelector('b').textContent = name;
+  } catch (e) {
+    res.className = 'e'; res.textContent = 'Mot de passe incorrect. Vérifie ton nom et réessaie.';
+  }
+}
+go.onclick = reveal;
+pw.onkeydown = e => { if (e.key === 'Enter') reveal(); };
+</script>
+</body>
+</html>
